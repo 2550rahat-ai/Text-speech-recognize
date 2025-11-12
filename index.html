@@ -255,7 +255,7 @@
 
         <!-- Footer -->
         <footer class="mt-8 text-center text-gray-600 text-sm">
-            <p>Note: This app requires microphone access and works best in modern browsers like Chrome, Edge, or Firefox.</p>
+            <p>This app requires microphone access and works best in modern browsers like Chrome, Edge, or Firefox.</p>
         </footer>
     </div>
 
@@ -649,11 +649,20 @@
                     return;
                 }
                 
-                const blob = new Blob([text], { type: 'text/plain' });
+                // Create a Blob with UTF-8 encoding for all languages
+                const blob = new Blob(["\uFEFF" + text], { 
+                    type: 'text/plain;charset=utf-8' 
+                });
+                
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `speech-to-text-${new Date().toISOString().slice(0, 10)}.txt`;
+                
+                // Create filename with current date
+                const date = new Date().toISOString().slice(0, 10);
+                const language = languageSelect.options[languageSelect.selectedIndex].text.split(' ')[0];
+                a.download = `speech-to-text-${language}-${date}.txt`;
+                
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
