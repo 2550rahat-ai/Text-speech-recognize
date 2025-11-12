@@ -85,12 +85,126 @@
             border-radius: 4px;
             margin-top: 5px;
         }
+        
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #10b981;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 50px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+        
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+        
+        .toast.error {
+            background: #ef4444;
+        }
+        
+        .toast.warning {
+            background: #f59e0b;
+        }
+        
+        .fab {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 25px -3px rgba(59, 130, 246, 0.5);
+            z-index: 50;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .fab.recording {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            animation: pulse 1.5s infinite;
+        }
+        
+        .fab:hover {
+            transform: scale(1.1);
+        }
+        
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 15px rgba(239, 68, 68, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+            }
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .tts-controls {
+            background: #f0f9ff;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+        
+        .slide-in {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateY(-10px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
     </style>
 </head>
-<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen p-4">
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen p-4 pb-24">
+    <!-- Toast Container -->
+    <div id="toastContainer"></div>
+    
+    <!-- Floating Action Button (Mobile) -->
+    <div id="fab" class="fab hidden md:hidden">
+        <i class="fas fa-microphone text-xl"></i>
+    </div>
+
     <div class="max-w-4xl mx-auto">
         <!-- Header -->
-        <header class="text-center mb-8 pt-6">
+        <header class="text-center mb-8 pt-6 fade-in">
             <h1 class="text-3xl md:text-4xl font-bold text-gray-800 flex items-center justify-center gap-3">
                 <i class="fas fa-microphone text-blue-500"></i>
                 Speech-to-Text Converter
@@ -102,7 +216,7 @@
             <!-- Left Panel - Controls -->
             <div class="lg:col-span-1 space-y-6">
                 <!-- Language Selection -->
-                <div class="bg-white rounded-xl shadow-md p-5">
+                <div class="bg-white rounded-xl shadow-md p-5 slide-in">
                     <h2 class="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
                         <i class="fas fa-globe text-blue-500"></i>
                         Language Settings
@@ -124,7 +238,7 @@
                 </div>
 
                 <!-- Recording Controls -->
-                <div class="bg-white rounded-xl shadow-md p-5">
+                <div class="bg-white rounded-xl shadow-md p-5 slide-in">
                     <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                         <i class="fas fa-record-vinyl text-blue-500"></i>
                         Recording Controls
@@ -154,6 +268,11 @@
                             Stop Recording
                         </button>
                         
+                        <button id="readAloudBtn" class="w-full flex items-center justify-center gap-2 bg-purple-500 hover:bg-purple-600 text-white py-3 px-4 rounded-lg font-medium transition-all duration-300">
+                            <i class="fas fa-volume-up"></i>
+                            Read Aloud
+                        </button>
+                        
                         <div class="grid grid-cols-2 gap-3">
                             <button id="clearBtn" class="flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white py-3 px-4 rounded-lg font-medium transition-all duration-300">
                                 <i class="fas fa-eraser"></i>
@@ -169,7 +288,7 @@
                 </div>
 
                 <!-- Save & Export -->
-                <div class="bg-white rounded-xl shadow-md p-5">
+                <div class="bg-white rounded-xl shadow-md p-5 slide-in">
                     <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                         <i class="fas fa-save text-blue-500"></i>
                         Save & Export
@@ -190,14 +309,62 @@
                     </div>
                 </div>
 
-                <!-- Debug Options -->
-                <div class="bg-white rounded-xl shadow-md p-5">
+                <!-- Text-to-Speech Controls -->
+                <div class="bg-white rounded-xl shadow-md p-5 slide-in tts-controls">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <i class="fas fa-volume-up text-purple-500"></i>
+                        Text-to-Speech Settings
+                    </h2>
+                    
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Voice</label>
+                            <select id="voiceSelect" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                <!-- Voices will be populated by JavaScript -->
+                            </select>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Rate</label>
+                                <input type="range" id="rateSlider" min="0.5" max="2" step="0.1" value="1" class="w-full">
+                                <div class="text-xs text-gray-500 text-center" id="rateValue">1.0</div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Pitch</label>
+                                <input type="range" id="pitchSlider" min="0.5" max="2" step="0.1" value="1" class="w-full">
+                                <div class="text-xs text-gray-500 text-center" id="pitchValue">1.0</div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-between items-center pt-2">
+                            <button id="pauseResumeBtn" disabled class="flex items-center gap-2 bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded-lg text-sm transition-all duration-300">
+                                <i class="fas fa-pause"></i>
+                                Pause
+                            </button>
+                            
+                            <button id="stopTtsBtn" disabled class="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg text-sm transition-all duration-300">
+                                <i class="fas fa-stop"></i>
+                                Stop
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings -->
+                <div class="bg-white rounded-xl shadow-md p-5 slide-in">
                     <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
                         <i class="fas fa-cog text-blue-500"></i>
                         Settings
                     </h2>
                     
                     <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <label class="text-sm font-medium text-gray-700">Auto Punctuation</label>
+                            <input type="checkbox" id="autoPunctuation" checked class="h-5 w-5 text-blue-600 rounded">
+                        </div>
+                        
                         <div class="flex items-center justify-between">
                             <label class="text-sm font-medium text-gray-700">Remove Duplicates</label>
                             <input type="checkbox" id="removeDuplicates" checked class="h-5 w-5 text-blue-600 rounded">
@@ -220,7 +387,7 @@
             <!-- Right Panel - Text Output & Saved Texts -->
             <div class="lg:col-span-2 space-y-6">
                 <!-- Text Output -->
-                <div class="bg-white rounded-xl shadow-md p-5 h-full">
+                <div class="bg-white rounded-xl shadow-md p-5 h-full slide-in">
                     <h2 class="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
                         <i class="fas fa-file-alt text-blue-500"></i>
                         Converted Text
@@ -239,7 +406,7 @@
                 </div>
 
                 <!-- Saved Texts -->
-                <div class="bg-white rounded-xl shadow-md p-5">
+                <div class="bg-white rounded-xl shadow-md p-5 slide-in">
                     <h2 class="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
                         <i class="fas fa-history text-blue-500"></i>
                         Saved Texts
@@ -268,6 +435,7 @@
             const copyBtn = document.getElementById('copyBtn');
             const saveBtn = document.getElementById('saveBtn');
             const exportBtn = document.getElementById('exportBtn');
+            const readAloudBtn = document.getElementById('readAloudBtn');
             const languageSelect = document.getElementById('languageSelect');
             const textOutput = document.getElementById('textOutput');
             const status = document.getElementById('status');
@@ -284,6 +452,15 @@
             const lastResult = document.getElementById('lastResult');
             const confidenceLevel = document.getElementById('confidenceLevel');
             const resultsCount = document.getElementById('resultsCount');
+            const autoPunctuation = document.getElementById('autoPunctuation');
+            const fab = document.getElementById('fab');
+            const voiceSelect = document.getElementById('voiceSelect');
+            const rateSlider = document.getElementById('rateSlider');
+            const pitchSlider = document.getElementById('pitchSlider');
+            const rateValue = document.getElementById('rateValue');
+            const pitchValue = document.getElementById('pitchValue');
+            const pauseResumeBtn = document.getElementById('pauseResumeBtn');
+            const stopTtsBtn = document.getElementById('stopTtsBtn');
             
             // App State
             let recognition;
@@ -291,11 +468,15 @@
             let finalTranscript = '';
             let lastProcessedText = '';
             let resultsCounter = 0;
+            let speechSynthesis = window.speechSynthesis;
+            let currentUtterance = null;
+            let isPaused = false;
             
             // Initialize
             checkBrowserSupport();
             loadSavedTexts();
             updateTextStats();
+            loadVoices();
             
             // Event Listeners
             recordBtn.addEventListener('click', startRecording);
@@ -304,9 +485,131 @@
             copyBtn.addEventListener('click', copyText);
             saveBtn.addEventListener('click', saveText);
             exportBtn.addEventListener('click', exportText);
-            textOutput.addEventListener('input', updateTextStats);
+            readAloudBtn.addEventListener('click', readAloud);
             languageSelect.addEventListener('change', updateRecognitionLanguage);
             showDebug.addEventListener('change', toggleDebugInfo);
+            fab.addEventListener('click', toggleRecording);
+            rateSlider.addEventListener('input', updateRate);
+            pitchSlider.addEventListener('input', updatePitch);
+            pauseResumeBtn.addEventListener('click', togglePauseResume);
+            stopTtsBtn.addEventListener('click', stopTts);
+            
+            // Load available voices
+            function loadVoices() {
+                // Chrome loads voices asynchronously
+                speechSynthesis.onvoiceschanged = function() {
+                    populateVoiceList();
+                };
+                populateVoiceList();
+            }
+            
+            function populateVoiceList() {
+                const voices = speechSynthesis.getVoices();
+                voiceSelect.innerHTML = '';
+                
+                voices.forEach(voice => {
+                    const option = document.createElement('option');
+                    option.value = voice.name;
+                    option.textContent = `${voice.name} (${voice.lang})`;
+                    if (voice.default) {
+                        option.textContent += ' — DEFAULT';
+                    }
+                    voiceSelect.appendChild(option);
+                });
+            }
+            
+            function updateRate() {
+                rateValue.textContent = rateSlider.value;
+            }
+            
+            function updatePitch() {
+                pitchValue.textContent = pitchSlider.value;
+            }
+            
+            function togglePauseResume() {
+                if (isPaused) {
+                    speechSynthesis.resume();
+                    pauseResumeBtn.innerHTML = '<i class="fas fa-pause"></i> Pause';
+                    isPaused = false;
+                } else {
+                    speechSynthesis.pause();
+                    pauseResumeBtn.innerHTML = '<i class="fas fa-play"></i> Resume';
+                    isPaused = true;
+                }
+            }
+            
+            function stopTts() {
+                speechSynthesis.cancel();
+                pauseResumeBtn.disabled = true;
+                stopTtsBtn.disabled = true;
+                pauseResumeBtn.innerHTML = '<i class="fas fa-pause"></i> Pause';
+                isPaused = false;
+            }
+            
+            function readAloud() {
+                const text = textOutput.value.trim();
+                
+                if (text === '') {
+                    showToast('Please enter some text to read aloud', 'warning');
+                    return;
+                }
+                
+                if (speechSynthesis.speaking) {
+                    speechSynthesis.cancel();
+                }
+                
+                const utterance = new SpeechSynthesisUtterance(text);
+                const selectedVoice = voiceSelect.value;
+                const voices = speechSynthesis.getVoices();
+                
+                // Set the selected voice
+                for (let i = 0; i < voices.length; i++) {
+                    if (voices[i].name === selectedVoice) {
+                        utterance.voice = voices[i];
+                        break;
+                    }
+                }
+                
+                utterance.rate = parseFloat(rateSlider.value);
+                utterance.pitch = parseFloat(pitchSlider.value);
+                
+                utterance.onstart = function() {
+                    pauseResumeBtn.disabled = false;
+                    stopTtsBtn.disabled = false;
+                    readAloudBtn.innerHTML = '<i class="fas fa-volume-mute"></i> Reading...';
+                    readAloudBtn.disabled = true;
+                };
+                
+                utterance.onend = function() {
+                    pauseResumeBtn.disabled = true;
+                    stopTtsBtn.disabled = true;
+                    readAloudBtn.innerHTML = '<i class="fas fa-volume-up"></i> Read Aloud';
+                    readAloudBtn.disabled = false;
+                    isPaused = false;
+                    pauseResumeBtn.innerHTML = '<i class="fas fa-pause"></i> Pause';
+                };
+                
+                utterance.onerror = function(event) {
+                    console.error('SpeechSynthesis error:', event);
+                    showToast('Error reading text aloud', 'error');
+                    pauseResumeBtn.disabled = true;
+                    stopTtsBtn.disabled = true;
+                    readAloudBtn.innerHTML = '<i class="fas fa-volume-up"></i> Read Aloud';
+                    readAloudBtn.disabled = false;
+                };
+                
+                currentUtterance = utterance;
+                speechSynthesis.speak(utterance);
+                showToast('Reading text aloud');
+            }
+            
+            function toggleRecording() {
+                if (isRecording) {
+                    stopRecording();
+                } else {
+                    startRecording();
+                }
+            }
             
             // Functions
             function checkBrowserSupport() {
@@ -314,6 +617,7 @@
                     statusText.textContent = 'Speech recognition not supported in this browser.';
                     recordBtn.disabled = true;
                     languageSelect.disabled = true;
+                    fab.classList.add('hidden');
                 }
             }
             
@@ -336,6 +640,7 @@
                     statusText.classList.add('text-red-700');
                     waveAnimation.classList.remove('hidden');
                     recordBtn.classList.add('pulse-ring');
+                    fab.classList.add('recording');
                     
                     // Reset counters
                     resultsCounter = 0;
@@ -363,7 +668,10 @@
                         if (result.isFinal) {
                             // Filter out duplicates and low confidence results
                             if (shouldIncludeResult(transcript, confidence)) {
-                                newFinalTranscript += transcript + ' ';
+                                // Apply auto punctuation if enabled
+                                let processedTranscript = autoPunctuation.checked ? 
+                                    addPunctuationAndCapitalization(transcript) : transcript;
+                                newFinalTranscript += processedTranscript + ' ';
                             }
                         } else {
                             interimTranscript += transcript;
@@ -401,6 +709,23 @@
                         }
                     }
                 };
+            }
+            
+            function addPunctuationAndCapitalization(text) {
+                // Basic punctuation and capitalization rules
+                let processed = text.trim();
+                
+                // Capitalize first letter
+                if (processed.length > 0) {
+                    processed = processed.charAt(0).toUpperCase() + processed.slice(1);
+                }
+                
+                // Add period if no ending punctuation
+                if (!/[.!?]$/.test(processed)) {
+                    processed += '.';
+                }
+                
+                return processed;
             }
             
             function shouldIncludeResult(transcript, confidence) {
@@ -447,6 +772,7 @@
                 
                 try {
                     recognition.start();
+                    showToast('Recording started');
                 } catch (e) {
                     console.log('Recognition already started or error:', e);
                 }
@@ -462,6 +788,7 @@
                     }
                     resetRecording();
                     statusText.textContent = 'Recording stopped. Click "Start Recording" to continue.';
+                    showToast('Recording stopped');
                 }
             }
             
@@ -475,6 +802,7 @@
                 statusText.classList.remove('text-red-700');
                 waveAnimation.classList.add('hidden');
                 recordBtn.classList.remove('pulse-ring');
+                fab.classList.remove('recording');
             }
             
             function clearText() {
@@ -482,18 +810,13 @@
                 finalTranscript = '';
                 lastProcessedText = '';
                 updateTextStats();
+                showToast('Text cleared');
             }
             
             function copyText() {
                 textOutput.select();
                 document.execCommand('copy');
-                
-                // Visual feedback
-                const originalText = copyBtn.innerHTML;
-                copyBtn.innerHTML = '<i class="fas fa-check"></i> Copied!';
-                setTimeout(() => {
-                    copyBtn.innerHTML = originalText;
-                }, 2000);
+                showToast('Text copied to clipboard');
             }
             
             function updateRecognitionLanguage() {
@@ -521,7 +844,7 @@
                 const name = saveName.value.trim() || `Text_${new Date().toLocaleString()}`;
                 
                 if (text === '') {
-                    alert('Please enter some text to save.');
+                    showToast('Please enter some text to save', 'warning');
                     return;
                 }
                 
@@ -547,7 +870,7 @@
                 loadSavedTexts();
                 
                 // Show confirmation
-                alert(`Text saved as "${name}"`);
+                showToast(`Text saved as "${name}"`);
             }
             
             function loadSavedTexts() {
@@ -626,6 +949,7 @@
                     
                     // Scroll to text output
                     textOutput.scrollIntoView({ behavior: 'smooth' });
+                    showToast('Text loaded');
                 }
             }
             
@@ -639,13 +963,14 @@
                 
                 localStorage.setItem('speechToTextSaved', JSON.stringify(updatedTexts));
                 loadSavedTexts();
+                showToast('Text deleted');
             }
             
             function exportText() {
                 const text = textOutput.value.trim();
                 
                 if (text === '') {
-                    alert('Please enter some text to export.');
+                    showToast('Please enter some text to export', 'warning');
                     return;
                 }
                 
@@ -667,6 +992,33 @@
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
+                showToast('Text exported as TXT file');
+            }
+            
+            function showToast(message, type = 'success') {
+                const toast = document.createElement('div');
+                toast.className = `toast ${type === 'error' ? 'error' : type === 'warning' ? 'warning' : ''}`;
+                toast.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-${type === 'error' ? 'exclamation-circle' : type === 'warning' ? 'exclamation-triangle' : 'check-circle'}"></i>
+                        <span>${message}</span>
+                    </div>
+                `;
+                
+                document.getElementById('toastContainer').appendChild(toast);
+                
+                // Show toast
+                setTimeout(() => {
+                    toast.classList.add('show');
+                }, 10);
+                
+                // Hide toast after 3 seconds
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    setTimeout(() => {
+                        document.getElementById('toastContainer').removeChild(toast);
+                    }, 300);
+                }, 3000);
             }
         });
     </script>
