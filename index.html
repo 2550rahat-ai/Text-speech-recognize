@@ -76,6 +76,15 @@
                 opacity: 0;
             }
         }
+        
+        .debug-info {
+            font-size: 0.8rem;
+            color: #6b7280;
+            background: #f9fafb;
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen p-4">
@@ -180,6 +189,32 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- Debug Options -->
+                <div class="bg-white rounded-xl shadow-md p-5">
+                    <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                        <i class="fas fa-cog text-blue-500"></i>
+                        Settings
+                    </h2>
+                    
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <label class="text-sm font-medium text-gray-700">Remove Duplicates</label>
+                            <input type="checkbox" id="removeDuplicates" checked class="h-5 w-5 text-blue-600 rounded">
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <label class="text-sm font-medium text-gray-700">Show Debug Info</label>
+                            <input type="checkbox" id="showDebug" class="h-5 w-5 text-blue-600 rounded">
+                        </div>
+                        
+                        <div id="debugInfo" class="debug-info hidden">
+                            <div>Last Result: <span id="lastResult">None</span></div>
+                            <div>Confidence: <span id="confidenceLevel">0</span></div>
+                            <div>Results Count: <span id="resultsCount">0</span></div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Right Panel - Text Output & Saved Texts -->
@@ -243,11 +278,19 @@
             const noSavedTexts = document.getElementById('noSavedTexts');
             const charCount = document.getElementById('charCount');
             const wordCount = document.getElementById('wordCount');
+            const removeDuplicates = document.getElementById('removeDuplicates');
+            const showDebug = document.getElementById('showDebug');
+            const debugInfo = document.getElementById('debugInfo');
+            const lastResult = document.getElementById('lastResult');
+            const confidenceLevel = document.getElementById('confidenceLevel');
+            const resultsCount = document.getElementById('resultsCount');
             
             // App State
             let recognition;
             let isRecording = false;
             let finalTranscript = '';
+            let lastProcessedText = '';
+            let resultsCounter = 0;
             
             // Initialize
             checkBrowserSupport();
@@ -263,6 +306,7 @@
             exportBtn.addEventListener('click', exportText);
             textOutput.addEventListener('input', updateTextStats);
             languageSelect.addEventListener('change', updateRecognitionLanguage);
+            showDebug.addEventListener('change', toggleDebugInfo);
             
             // Functions
             function checkBrowserSupport() {
@@ -280,6 +324,7 @@
                 recognition.continuous = true;
                 recognition.interimResults = true;
                 recognition.lang = languageSelect.value;
+                recognition.maxAlternatives = 1; // Reduce alternatives to minimize duplicates
                 
                 recognition.onstart = function() {
                     isRecording = true;
@@ -291,20 +336,47 @@
                     statusText.classList.add('text-red-700');
                     waveAnimation.classList.remove('hidden');
                     recordBtn.classList.add('pulse-ring');
+                    
+                    // Reset counters
+                    resultsCounter = 0;
+                    lastProcessedText = '';
                 };
                 
                 recognition.onresult = function(event) {
                     let interimTranscript = '';
+                    let newFinalTranscript = '';
                     
                     for (let i = event.resultIndex; i < event.results.length; i++) {
-                        const transcript = event.results[i][0].transcript;
-                        if (event.results[i].isFinal) {
-                            finalTranscript += transcript + ' ';
+                        const result = event.results[i];
+                        const transcript = result[0].transcript;
+                        const confidence = result[0].confidence;
+                        
+                        resultsCounter++;
+                        
+                        // Update debug info if enabled
+                        if (showDebug.checked) {
+                            lastResult.textContent = transcript.substring(0, 30) + (transcript.length > 30 ? '...' : '');
+                            confidenceLevel.textContent = (confidence * 100).toFixed(2) + '%';
+                            resultsCount.textContent = resultsCounter;
+                        }
+                        
+                        if (result.isFinal) {
+                            // Filter out duplicates and low confidence results
+                            if (shouldIncludeResult(transcript, confidence)) {
+                                newFinalTranscript += transcript + ' ';
+                            }
                         } else {
                             interimTranscript += transcript;
                         }
                     }
                     
+                    // Only add new content if it's different from the last processed text
+                    if (newFinalTranscript.trim() !== '' && newFinalTranscript.trim() !== lastProcessedText) {
+                        finalTranscript += newFinalTranscript;
+                        lastProcessedText = newFinalTranscript.trim();
+                    }
+                    
+                    // Update the text area
                     textOutput.value = finalTranscript + interimTranscript;
                     updateTextStats();
                     
@@ -331,6 +403,37 @@
                 };
             }
             
+            function shouldIncludeResult(transcript, confidence) {
+                // Filter out low confidence results (adjust threshold as needed)
+                if (confidence < 0.5) {
+                    return false;
+                }
+                
+                // If remove duplicates is enabled, check for repetition
+                if (removeDuplicates.checked) {
+                    const words = transcript.trim().split(/\s+/);
+                    const lastWords = finalTranscript.trim().split(/\s+/).slice(-5); // Last 5 words
+                    
+                    // Check if the new text is too similar to recent text
+                    for (let word of words) {
+                        if (lastWords.includes(word) && words.length <= 3) {
+                            // Likely a duplicate short phrase
+                            return false;
+                        }
+                    }
+                    
+                    // Check if this exact phrase was recently added
+                    if (finalTranscript.includes(transcript.trim())) {
+                        const recentText = finalTranscript.substring(finalTranscript.length - 100);
+                        if (recentText.includes(transcript.trim())) {
+                            return false;
+                        }
+                    }
+                }
+                
+                return true;
+            }
+            
             function startRecording() {
                 if (!recognition) {
                     initializeRecognition();
@@ -339,6 +442,7 @@
                 // Reset final transcript only when starting fresh
                 if (!isRecording) {
                     finalTranscript = textOutput.value || '';
+                    lastProcessedText = '';
                 }
                 
                 try {
@@ -376,6 +480,7 @@
             function clearText() {
                 textOutput.value = '';
                 finalTranscript = '';
+                lastProcessedText = '';
                 updateTextStats();
             }
             
@@ -401,6 +506,14 @@
                 const text = textOutput.value;
                 charCount.textContent = text.length;
                 wordCount.textContent = text.trim() === '' ? 0 : text.trim().split(/\s+/).length;
+            }
+            
+            function toggleDebugInfo() {
+                if (showDebug.checked) {
+                    debugInfo.classList.remove('hidden');
+                } else {
+                    debugInfo.classList.add('hidden');
+                }
             }
             
             function saveText() {
